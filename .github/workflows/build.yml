@@ -1,0 +1,65 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+
+    - name: Build App Payload
+      run: |
+        mkdir -p build/Payload
+        xcrun -sdk iphoneos swiftc ClassicIconsApp.swift \
+          -emit-executable \
+          -o build/Payload/ClassicIconsApp \
+          -target arm64-apple-ios15.0 \
+          -parse-as-library
+
+        cat <<EOF > build/Payload/Info.plist
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>ClassicIconsApp</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.classicicons.app</string>
+            <key>CFBundleName</key>
+            <string>ClassicIcons</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+
+            <key>UILaunchScreen</key>
+            <dict/>
+        </dict>
+        </plist>
+        EOF
+
+        mv build/Payload build/Payload_dir
+        mkdir build/Payload
+        mv build/Payload_dir build/Payload/ClassicIconsApp.app
+
+    - name: Create IPA Package
+      run: |
+        cd build
+        zip -r ClassicIcons.ipa Payload
+
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ClassicIcons-IPA
+        path: build/ClassicIcons.ipa
